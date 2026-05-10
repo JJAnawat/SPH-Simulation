@@ -15,6 +15,7 @@ struct SimParams {
 
     // World
     float gravity = -9.8f;
+    float damp = 0.7f;
 
     // Control flags
     bool paused = false;

@@ -18,7 +18,7 @@ struct SpatialHash{
     public:
         SpatialHash(float cs) : cell_size(cs) {}
 
-        void insert(const glm::vec3 &real_pos, int idx);
+        void insert(const std::vector<glm::vec3>& particles_pos);
         std::vector<int> query(const glm::vec3 &real_pos);
         
         void clear();

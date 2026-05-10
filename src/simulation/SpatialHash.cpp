@@ -17,10 +17,12 @@ glm::ivec3 SpatialHash::cell_pos(const glm::vec3 &real_pos) const {
     return grid_index;
 }
 
-void SpatialHash::insert(const glm::vec3 &real_pos, int idx) {
-    glm::ivec3 grid_idx = cell_pos(real_pos);
-    size_t hash_idx = hash(grid_idx);
-    grid[hash_idx].push_back(idx);
+void SpatialHash::insert(const std::vector<glm::vec3>& particles_pos) {
+    for(int i=0; i<particles_pos.size();i++){
+        glm::ivec3 grid_idx = cell_pos(particles_pos[i]);
+        size_t hash_idx = hash(grid_idx);
+        grid[hash_idx].push_back(i);
+    }
 }
 
 std::vector<int> SpatialHash::query(const glm::vec3 &real_pos) {
