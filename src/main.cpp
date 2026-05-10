@@ -1,14 +1,11 @@
 #include <glad/glad.h>
 #include "core/Window.h"
 #include "ui/DebugUI.h"
-#include "simulation/SimParams.h"
 
 int main() {
     Window window(1280, 720, "SPH Fluid Simulation");
     DebugUI ui;
     ui.init(window.getHandle());
-
-    SimParams params;
 
     while (!window.shouldClose()) {
         window.pollEvents();
@@ -22,7 +19,7 @@ int main() {
 
         // ImGui
         ui.beginFrame();
-        ui.render(params);
+        ui.render();
         ui.endFrame();
 
         window.swapBuffers();

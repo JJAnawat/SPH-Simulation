@@ -1,5 +1,11 @@
 #pragma once
 
+struct CameraParams {
+    float distance = 8.f;
+    float yaw = 45.f;
+    float pitch = 30.f;
+};
+
 struct SimParams {
     // SPU Params
     float h = 0.5f; // smoothing radius
@@ -14,4 +20,17 @@ struct SimParams {
     bool paused = false;
     bool resetRequested = false;
     int particleCount = 0;
+
+    // Box
+    float boxMin[3]        = {-2.f, 0.f, -2.f};
+    float boxMax[3]        = { 2.f, 4.f,  2.f};
+    
+    // Visualize
+    float pointSize        = 8.f;
+    float particleColor[3] = {0.2f, 0.6f, 1.f};
 };
+
+namespace Sim {
+    inline SimParams params;
+    inline CameraParams camera;
+}
