@@ -1,4 +1,5 @@
 #include "Renderer.h"
+#include "simulation/Particle.h"
 #include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -58,8 +59,48 @@ void Renderer::drawBoundaryBox(const glm::mat4& m_view_proj) {
     glBindVertexArray(0);
 }
 
+void Renderer::drawParticles(const std::vector<Particle>& particles, const glm::mat4& m_view_proj){
+    if(particles.empty())
+        return;
+    
+    glBindVertexArray(particleVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, particleVBO);
+    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(particles.size() * sizeof(Particle)), particles.data(), GL_DYNAMIC_DRAW);
+
+    glUseProgram(particleShader);
+    glUniformMatrix4fv(glGetUniformLocation(particleShader, "u_mat_view_proj"), 1, GL_FALSE, glm::value_ptr(m_view_proj));
+    glUniform1f(glGetUniformLocation(particleShader, "u_point_size"), Sim::params.pointSize);
+    glUniform3fv(glGetUniformLocation(particleShader, "u_color"), 1, Sim::params.particleColor);
+    glUniform1i(glGetUniformLocation(particleShader, "u_velocity_coloring"), Sim::params.velocityColoring);
+    
+    // This max speed finding is still weird because if the next frame velocity all shift up by 10m/s it would still render the same color
+    // TODO: fix this thing
+    float maxSpeed = 0.f;
+    for(auto& p: particles)
+        maxSpeed = std::max(maxSpeed, glm::length(p.velocity));
+    glUniform1f(glGetUniformLocation(particleShader, "u_max_speed"), maxSpeed > 0.f ? maxSpeed : 1.f);
+
+    glDrawArrays(GL_POINTS, 0, (GLsizei) particles.size());
+    glBindVertexArray(0);
+}
+
 void Renderer::init(){
-    // Particle stuffs here
+    // Particles
+    particleShader = linkProgram(
+        compileShader(GL_VERTEX_SHADER, "shaders/particle.vert"),
+        compileShader(GL_FRAGMENT_SHADER, "shaders/particle.frag")
+    );
+
+    // Particle VAO - [pos(12)][vel(12)][density(4)][pressure(4)]
+    glGenVertexArrays(1, &particleVAO);
+    glGenBuffers(1, &particleVBO);
+    glBindVertexArray(particleVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, particleVBO);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void *)offsetof(Particle, position));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void *)offsetof(Particle, velocity));
+    glEnableVertexAttribArray(1);
+    glBindVertexArray(0);
     
     // Bounding box
     boxShader = linkProgram(
@@ -98,7 +139,7 @@ void Renderer::init(){
     glEnable(GL_DEPTH_TEST);
 }
         
-void Renderer::render(){
+void Renderer::render(const std::vector<Particle>& particles){
     glClearColor(0.1f, 0.1f, 0.1f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -115,10 +156,14 @@ void Renderer::render(){
     glm::mat4 proj = glm::perspective(glm::radians(45.f), aspectRatio, 0.1f, 100.f);
     glm::mat4 m_view_proj  = proj * view;
     
+    drawParticles(particles, m_view_proj);
     drawBoundaryBox(m_view_proj);
 }
 
 void Renderer::shutdown(){
+    glDeleteVertexArrays(1, &particleVAO);
+    glDeleteBuffers(1, &particleVAO);
+    glDeleteProgram(particleShader);
     glDeleteVertexArrays(1, &boxVAO);
     glDeleteBuffers(1, &boxVBO);
     glDeleteBuffers(1, &boxEBO);

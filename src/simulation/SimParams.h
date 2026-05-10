@@ -28,6 +28,7 @@ struct SimParams {
     // Visualize
     float pointSize        = 8.f;
     float particleColor[3] = {0.2f, 0.6f, 1.f};
+    bool velocityColoring = true;
 };
 
 namespace Sim {

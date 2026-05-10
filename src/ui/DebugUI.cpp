@@ -40,6 +40,8 @@ void DebugUI::render() {
     ImGui::SliderFloat("Cam Yaw",      &Sim::camera.yaw,      0.f,  360.f);
     ImGui::SliderFloat("Cam Pitch",    &Sim::camera.pitch,    -89.f, 89.f);
     ImGui::SliderFloat("Cam Distance", &Sim::camera.distance, 1.f,  30.f);
+    
+    ImGui::Checkbox("Velocity Coloring", &Sim::params.velocityColoring);
 
     ImGui::Separator();
     if (ImGui::Button("Reset Simulation"))
