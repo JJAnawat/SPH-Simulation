@@ -1,11 +1,16 @@
 #include <glad/glad.h>
+#include "core/Renderer.h"
 #include "core/Window.h"
 #include "ui/DebugUI.h"
 
 int main() {
     Window window(1280, 720, "SPH Fluid Simulation");
+    
     DebugUI ui;
     ui.init(window.getHandle());
+    
+    Renderer renderer;
+    renderer.init();
 
     while (!window.shouldClose()) {
         window.pollEvents();
@@ -13,9 +18,7 @@ int main() {
         // if (!params.paused)
         //     solver.step(params);
 
-        // Clear
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        renderer.render();
 
         // ImGui
         ui.beginFrame();
@@ -25,6 +28,7 @@ int main() {
         window.swapBuffers();
     }
 
+    renderer.shutdown();
     ui.shutdown();
     return 0;
 }

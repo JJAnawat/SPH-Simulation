@@ -1,9 +1,9 @@
 #pragma once
 
 struct CameraParams {
-    float distance = 8.f;
-    float yaw = 45.f;
-    float pitch = 30.f;
+    float distance = 10.f;
+    float yaw = 0.f;
+    float pitch = 18.f;
 };
 
 struct SimParams {
@@ -22,8 +22,8 @@ struct SimParams {
     int particleCount = 0;
 
     // Box
-    float boxMin[3]        = {-2.f, 0.f, -2.f};
-    float boxMax[3]        = { 2.f, 4.f,  2.f};
+    float boxMin[3] = {-4.f, -2.f, -2.f};
+    float boxMax[3] = { 4.f,  2.f,  2.f};
     
     // Visualize
     float pointSize        = 8.f;

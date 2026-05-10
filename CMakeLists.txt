@@ -37,3 +37,8 @@ target_include_directories(SPHSimulation PRIVATE
 )
 
 target_link_libraries(SPHSimulation PRIVATE glfw glad imgui)
+
+set_target_properties(SPHSimulation PROPERTIES
+    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
