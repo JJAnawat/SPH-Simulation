@@ -1,11 +1,9 @@
 #include "SPHSolver.h"
 #include "simulation/SimParams.h"
-#include <algorithm>
+#include "simulation/ParticleUtils.h"
 
-SPHSolver::SPHSolver(const float h, std::vector<Particle>& parts) : grid(h), particles(parts) {
-    std::vector<glm::vec3> pos_vec;
-    std::transform(particles.begin(), particles.end(), std::back_inserter(pos_vec),
-                    [](const Particle& p) {return p.position; });
+SPHSolver::SPHSolver(const float h, std::vector<Particle> parts) : grid(h), particles(parts) {
+    auto pos_vec = extractPos(particles);
     grid.insert(pos_vec);
 }
 

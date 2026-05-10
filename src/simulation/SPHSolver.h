@@ -7,7 +7,7 @@
 
 struct SPHSolver {
     public:
-        SPHSolver(const float h, std::vector<Particle>& parts);
+        SPHSolver(const float h, std::vector<Particle> parts);
         void step(float dt);
 
         const std::vector<Particle>& getParticles() const { return particles; }
