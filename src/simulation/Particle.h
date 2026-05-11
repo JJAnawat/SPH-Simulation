@@ -3,5 +3,5 @@
 
 struct Particle{
     glm::vec3 position, velocity, acceleration;
-    float density, pressure;
+    float density, pressure, mass;
 };  
