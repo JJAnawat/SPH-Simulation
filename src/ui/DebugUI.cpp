@@ -49,6 +49,8 @@ void DebugUI::render() {
 
     ImGui::SameLine(); // put next widget on same line
     ImGui::Checkbox("Pause", &Sim::params.paused);
+    
+    ImGui::Checkbox("Show Rigid Bodies", &Sim::params.showRigidBodies);
 
     ImGui::End();
 }

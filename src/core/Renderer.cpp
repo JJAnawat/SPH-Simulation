@@ -1,5 +1,6 @@
 #include "Renderer.h"
 #include "simulation/Particle.h"
+#include "simulation/RigidBody.h"
 #include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -102,6 +103,15 @@ void Renderer::init(){
     glEnableVertexAttribArray(1);
     glBindVertexArray(0);
     
+    // Rigid body samples VAO
+    glGenVertexArrays(1, &rigidSampleVAO);
+    glGenBuffers(1, &rigidSampleVBO);
+    glBindVertexArray(rigidSampleVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, rigidSampleVBO);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glEnableVertexAttribArray(0);
+    glBindVertexArray(0);
+    
     // Bounding box
     boxShader = linkProgram(
         compileShader(GL_VERTEX_SHADER, "shaders/box.vert"),
@@ -160,12 +170,58 @@ void Renderer::render(const std::vector<Particle>& particles){
     drawBoundaryBox(m_view_proj);
 }
 
+void Renderer::renderWithRigidBodies(const std::vector<Particle>& particles, const std::vector<RigidBody>& bodies) {
+    glClearColor(0.1f, 0.1f, 0.1f, 1.f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    float yaw   = glm::radians(Sim::camera.yaw);
+    float pitch = glm::radians(Sim::camera.pitch);
+    float dist = Sim::camera.distance;
+    glm::vec3 eye = glm::vec3(
+        dist * cos(pitch) * sin(yaw),
+        dist * sin(pitch),
+        dist * cos(pitch) * cos(yaw)
+    );
+    glm::mat4 view = glm::lookAt(eye, glm::vec3(0.f), glm::vec3(0,1,0));
+    glm::mat4 proj = glm::perspective(glm::radians(45.f), aspectRatio, 0.1f, 100.f);
+    glm::mat4 m_view_proj  = proj * view;
+
+    drawParticles(particles, m_view_proj);
+    drawBoundaryBox(m_view_proj);
+    for (const auto& body : bodies) {
+        drawRigidBody(body, m_view_proj);
+    }
+}
+
+void Renderer::drawRigidBody(const RigidBody& body, const glm::mat4& m_view_proj) {
+    const auto& samples = body.worldSamples();
+    if (samples.empty()) return;
+
+    glUseProgram(particleShader);
+    glUniformMatrix4fv(glGetUniformLocation(particleShader, "u_mat_view_proj"), 1, GL_FALSE, glm::value_ptr(m_view_proj));
+    glUniform1f(glGetUniformLocation(particleShader, "u_point_size"), Sim::params.pointSize * 1.5f);
+    
+    float sampleColor[3] = {1.f, 0.5f, 0.2f};
+    glUniform3fv(glGetUniformLocation(particleShader, "u_color"), 1, sampleColor);
+    glUniform1i(glGetUniformLocation(particleShader, "u_velocity_coloring"), 0);
+    glUniform1f(glGetUniformLocation(particleShader, "u_max_speed"), 1.f);
+
+    glBindVertexArray(rigidSampleVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, rigidSampleVBO);
+    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(samples.size() * sizeof(glm::vec3)), samples.data(), GL_DYNAMIC_DRAW);
+    
+    glDrawArrays(GL_POINTS, 0, (GLsizei)samples.size());
+    glBindVertexArray(0);
+}
+
 void Renderer::shutdown(){
     glDeleteVertexArrays(1, &particleVAO);
-    glDeleteBuffers(1, &particleVAO);
+    glDeleteBuffers(1, &particleVBO);
     glDeleteProgram(particleShader);
     glDeleteVertexArrays(1, &boxVAO);
     glDeleteBuffers(1, &boxVBO);
     glDeleteBuffers(1, &boxEBO);
     glDeleteProgram(boxShader);
+    glDeleteVertexArrays(1, &rigidSampleVAO);
+    glDeleteBuffers(1, &rigidSampleVBO);
 }

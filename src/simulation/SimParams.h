@@ -20,6 +20,7 @@ struct SimParams {
     // Control flags
     bool paused = false;
     bool resetRequested = false;
+    bool showRigidBodies = true;
     int particleCount = 0;
 
     // Box
