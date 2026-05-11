@@ -36,6 +36,14 @@ void DebugUI::render() {
     ImGui::SeparatorText("World");
     ImGui::SliderFloat("Gravity",              &Sim::params.gravity, -20.f, 0.f);
 
+    ImGui::SeparatorText("Rigid Coupling");
+    ImGui::Checkbox("One-Way Rigid Coupling", &Sim::params.rigidOneWayCoupling);
+    ImGui::Checkbox("Two-Way Rigid Coupling", &Sim::params.rigidTwoWayCoupling);
+    ImGui::SliderFloat("Rigid Boundary Stiffness", &Sim::params.rigidBoundaryStiffness, 0.f, 300.f);
+    ImGui::SliderFloat("Rigid Boundary Damping", &Sim::params.rigidBoundaryDamping, 0.f, 20.f);
+    ImGui::SliderFloat("Rigid Wall Bounce", &Sim::params.rigidWallBounce, 0.f, 1.f);
+    ImGui::SliderFloat("Rigid Wall Angular Damp", &Sim::params.rigidAngularWallDamping, 0.f, 1.f);
+
     // Controls
     ImGui::SliderFloat("Cam Yaw",      &Sim::camera.yaw,      0.f,  360.f);
     ImGui::SliderFloat("Cam Pitch",    &Sim::camera.pitch,    -89.f, 89.f);

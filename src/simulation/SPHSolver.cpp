@@ -3,6 +3,9 @@
 #include "simulation/SimParams.h"
 #include "simulation/ParticleUtils.h"
 
+#include <algorithm>
+#include <cmath>
+
 void SPHSolver::updateGrid(){
     grid.clear();
     auto pos_vec = extractPos(particles);
@@ -62,12 +65,54 @@ void SPHSolver::computeForces(){
     }
 }
 
-void SPHSolver::step(float dt){
-    computeDensityPressure();
-    computeForces();
-    // printf("particle[0] density=%.4f pressure=%.4f\n",
-    //    particles[0].density, particles[0].pressure);
-    for(auto &p : particles){
+void SPHSolver::applyRigidBoundaryCoupling(std::vector<RigidBody>& rigidBodies, bool accumulateToRigid) {
+    if (rigidBodies.empty()) return;
+
+    const float h = Sim::params.h;
+    const float h2 = h * h;
+    const float eps = 1e-6f;
+
+    for (auto& body : rigidBodies) {
+        if (accumulateToRigid) body.clearAccumulators();
+
+        const auto& samples = body.worldSamples();
+        for (const auto& sampleWorldPos : samples) {
+            const glm::vec3 sampleVelocity =
+                body.linearVelocity() + glm::cross(body.angularVelocity(), sampleWorldPos - body.position());
+
+            auto nearbyParticles = grid.query(sampleWorldPos);
+            for (int pIdx : nearbyParticles) {
+                Particle& p = particles[pIdx];
+                const glm::vec3 d = p.position - sampleWorldPos;
+                const float dist2 = glm::dot(d, d);
+                if (dist2 >= h2 || dist2 <= eps) {
+                    continue;
+                }
+
+                const float dist = std::sqrt(dist2);
+                const glm::vec3 normal = d / dist;
+                const float penetration = h - dist;
+
+                const glm::vec3 relVelocity = p.velocity - sampleVelocity;
+                const float normalSpeed = glm::dot(relVelocity, normal);
+                const float dampingTerm = std::max(0.f, -normalSpeed) * Sim::params.rigidBoundaryDamping;
+                const float stiffnessTerm = Sim::params.rigidBoundaryStiffness * (penetration / h);
+
+                const float accelTerm = stiffnessTerm + dampingTerm; // acceleration to add to particle
+                p.acceleration += normal * accelTerm;
+
+                if (accumulateToRigid) {
+                    const glm::vec3 forceOnParticle = p.mass * normal * accelTerm;
+                    const glm::vec3 forceOnRigid = -forceOnParticle;
+                    body.applyForceAtPoint(forceOnRigid, sampleWorldPos);
+                }
+            }
+        }
+    }
+}
+
+void SPHSolver::integrateFluid(float dt) {
+    for (auto &p : particles) {
         p.velocity += p.acceleration * dt;
         p.position += p.velocity * dt;
 
@@ -80,6 +125,45 @@ void SPHSolver::step(float dt){
             break;
         }
     }
+}
+
+void SPHSolver::step(float dt){
+    std::vector<RigidBody> emptyBodies;
+    step(dt, emptyBodies);
+}
+
+void SPHSolver::step(float dt, std::vector<RigidBody>& rigidBodies) {
+    computeDensityPressure();
+    computeForces();
+
+    // If two-way coupling enabled, accumulate forces/torques on rigid bodies then integrate them
+    if (Sim::params.rigidTwoWayCoupling) {
+        // Compute interactions and accumulate on rigid bodies
+        applyRigidBoundaryCoupling(rigidBodies, true);
+
+        // Integrate rigid bodies using accumulated forces and gravity
+        for (auto& body : rigidBodies) {
+            body.applyForce({0.f, body.mass() * Sim::params.gravity, 0.f});
+            body.integrate(dt);
+        }
+
+        // After rigid moved, apply boundary response to fluid particles using updated samples
+        applyRigidBoundaryCoupling(rigidBodies, false);
+    }
+    else if (Sim::params.rigidOneWayCoupling) {
+        // simple one-way: apply particle acceleration due to rigid samples (no forces to rigid)
+        applyRigidBoundaryCoupling(rigidBodies, false);
+    }
+
+    // When two-way coupling is disabled we still need to integrate rigid bodies (gravity, etc.).
+    if (!rigidBodies.empty() && !Sim::params.rigidTwoWayCoupling) {
+        for (auto& body : rigidBodies) {
+            body.applyForce({0.f, body.mass() * Sim::params.gravity, 0.f});
+            body.integrate(dt);
+        }
+    }
+
+    integrateFluid(dt);
     handleBoundaries();
     updateGrid();
 }
