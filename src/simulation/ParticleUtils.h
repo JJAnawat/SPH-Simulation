@@ -2,11 +2,10 @@
 
 #include "Particle.h"
 #include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
 #include <vector>
 #include <random>
 #include <algorithm>
-
-const double PI = std::acos(-1.0);
 
 inline std::vector<Particle> makeBlock(
     const glm::vec3& origin,
@@ -47,7 +46,7 @@ inline std::vector<Particle> makeSphere(
     std::mt19937 rng(67);
     std::uniform_real_distribution<float> dist(0.f, 1.f);
 
-    float volume = (4.0f / 3.0f) * PI * radius * radius * radius;
+    float volume = (4.0f / 3.0f) * glm::pi<float>() * radius * radius * radius;
     float mass   = Sim::params.rho0 * (volume / count);
     
     while((int)particles.size() < count){
