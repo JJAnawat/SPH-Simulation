@@ -1,27 +1,28 @@
 #pragma once
 
 struct CameraParams {
-    float distance = 10.f;
+    float distance = 2.f;
     float yaw = 0.f;
     float pitch = 18.f;
 };
 
 struct SimParams {
     // SPU Params
-    float h = 0.5f; // smoothing radius
+    float h = 0.1f; // smoothing radius
     float rho0 = 1000.f; // rest density
-    float k = 200.f; // pressure stiffness
-    float mu = 0.1f; // viscosity
+    float k = 2.f; // pressure stiffness
+    float mu = 2.f; // viscosity
+    float p_mass = 1.f; // particle mass
 
     // World
     float gravity = -9.8f;
-    float damp = 0.7f;
+    float damp = 0.3f;
 
     // Control flags
     bool paused = false;
     bool resetRequested = false;
-    bool showRigidBodies = true;
-    bool rigidOneWayCoupling = true;
+    bool showRigidBodies = false;
+    bool rigidOneWayCoupling = false;
     bool rigidTwoWayCoupling = false;
     int particleCount = 0;
 
@@ -34,8 +35,8 @@ struct SimParams {
     float rigidAngularWallDamping = 0.8f;
 
     // Box
-    float boxMin[3] = {-4.f, -2.f, -2.f};
-    float boxMax[3] = { 4.f,  2.f,  2.f};
+    float boxMin[3] = {-0.5f, -0.5f, -0.5f};
+    float boxMax[3] = { 0.5f,  0.5f,  0.5f};
     
     // Visualize
     float pointSize        = 8.f;
