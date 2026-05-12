@@ -59,7 +59,8 @@ int main() {
     Renderer renderer;
     renderer.init();
 
-    auto particles = makeSphere({0.f, 1.5f, 0.f}, 0.3f, 1000);
+    // auto particles = makeRandomParticles(-0.5f, 0.5f, 1000);
+    auto particles = makeSphere({0.f, 0.2f, 0.f}, 0.35f, 500);
     SPHSolver solver(Sim::params.h, particles);
     auto rigidBody = RigidBody::createBox({0.f, 0.75f, 0.f}, {0.35f, 0.18f, 0.25f}, 2.5f, 5);
     std::vector<RigidBody> rigidBodies;
