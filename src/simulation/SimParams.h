@@ -25,6 +25,7 @@ struct SimParams {
     bool rigidOneWayCoupling = false;
     bool rigidTwoWayCoupling = false;
     int particleCount = 0;
+    int fluidParticleCount = 100;
 
     // Rigid-fluid coupling (one-way for now)
     float rigidBoundaryStiffness = 80.f;

@@ -34,6 +34,18 @@ void DebugUI::render() {
 
     // Sim Params
     if (ImGui::CollapsingHeader("Fluid", ImGuiTreeNodeFlags_DefaultOpen)) {
+        int exactCount = Sim::params.fluidParticleCount;
+        if (ImGui::InputInt("Exact Particle Count", &exactCount, 1, 100)) {
+            if (exactCount < 1) exactCount = 1;
+            if (exactCount > 30000) exactCount = 30000;
+            Sim::params.fluidParticleCount = exactCount;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Apply Count")) {
+            Sim::params.resetRequested = true;
+        }
+
+        ImGui::SliderInt("Fluid Particle Count", &Sim::params.fluidParticleCount, 1, 30000);
         ImGui::SliderFloat("Particle Mass", &Sim::params.p_mass, 0.1f, 5.0f);
         ImGui::SliderFloat("Smoothing Radius (h)", &Sim::params.h,       0.01f,   0.5f);
         ImGui::SliderFloat("Rest Density",         &Sim::params.rho0,    100.f,  2000.f);

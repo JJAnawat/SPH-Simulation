@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Particle.h"
+#include "SimParams.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 #include <vector>
@@ -89,8 +90,9 @@ inline std::vector<Particle> makeRandomParticles(
     return particles;
 }
 
-inline std::vector<glm::vec3> extractPos(std::vector<Particle>& parts){
+inline std::vector<glm::vec3> extractPos(const std::vector<Particle>& parts){
     std::vector<glm::vec3> pos_vec;
+    pos_vec.reserve(parts.size());
     std::transform(parts.begin(), parts.end(), std::back_inserter(pos_vec),
                     [](const Particle& p) {return p.position; });
     return pos_vec;
