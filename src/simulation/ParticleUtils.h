@@ -6,7 +6,6 @@
 #include <glm/gtc/constants.hpp>
 #include <vector>
 #include <random>
-#include <algorithm>
 
 inline std::vector<Particle> makeBlock(
     const glm::vec3& origin,
@@ -88,6 +87,32 @@ inline std::vector<Particle> makeRandomParticles(
         particles.push_back(p);
     }
     return particles;
+}
+
+inline std::vector<Particle> createFluidParticles(int count, std::string shape = "block") {
+    count = std::max(count, 1);
+
+    if(shape == "block"){
+        const int countPerAxis = std::max(1, static_cast<int>(std::ceil(std::cbrt(static_cast<double>(count)))));
+        const int layerSize = countPerAxis * countPerAxis;
+        const int layers = std::max(1, (count + layerSize - 1) / layerSize);
+        const float spacing = 0.03f;
+        const glm::vec3 origin = {
+            -0.5f * spacing * static_cast<float>(countPerAxis - 1),
+            -0.18f,
+            -0.5f * spacing * static_cast<float>(countPerAxis - 1)
+        };
+    
+        return makeBlock(origin, countPerAxis, countPerAxis, layers, spacing);
+    }
+    else if(shape == "sphere"){
+        const float radius = 0.3f;
+        const glm::vec3 center(0.f, 0.f, 0.f);
+        return makeSphere(center, radius, count);
+    }
+    else{
+        return makeRandomParticles(-0.5f, 0.5f, count);
+    }
 }
 
 inline std::vector<glm::vec3> extractPos(const std::vector<Particle>& parts){
