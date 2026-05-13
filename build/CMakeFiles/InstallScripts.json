@@ -1,9 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"C:/Users/Teak/OneDrive/Desktop/Academic/Year_3/CG/SPH-Simulation/build/cmake_install.cmake",
-		"C:/Users/Teak/OneDrive/Desktop/Academic/Year_3/CG/SPH-Simulation/build/external/glfw/cmake_install.cmake",
-		"C:/Users/Teak/OneDrive/Desktop/Academic/Year_3/CG/SPH-Simulation/build/external/glfw/src/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
