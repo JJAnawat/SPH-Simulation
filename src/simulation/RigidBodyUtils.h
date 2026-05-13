@@ -6,9 +6,9 @@
 
 inline std::vector<RigidBody> createRigidBodies() {
     std::vector<RigidBody> bodies;
-    bodies.emplace_back(RigidBody::createBox({-0.18f, 0.82f, 0.00f}, {0.14f, 0.08f, 0.10f}, 0.9f, 8));
-    bodies.emplace_back(RigidBody::createBox({ 0.14f, 0.96f,-0.05f}, {0.10f, 0.06f, 0.08f}, 2.4f, 9));
-    bodies.emplace_back(RigidBody::createSphere({ 0.02f, 0.74f, 0.10f}, 0.085f, 0.55f, 10, 20));
+    bodies.emplace_back(RigidBody::createBox({-0.18f, 0.80f, 0.00f}, {0.11f, 0.065f, 0.08f}, 0.38f, 7));
+    bodies.emplace_back(RigidBody::createBox({ 0.14f, 0.93f,-0.05f}, {0.085f, 0.050f, 0.065f}, 15.54f, 8));
+    bodies.emplace_back(RigidBody::createSphere({ 0.02f, 0.72f, 0.10f}, 0.060f, 0.28f, 8, 16));
     return bodies;
 }
 

@@ -5,6 +5,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <iostream>
 
@@ -188,25 +189,33 @@ void Renderer::renderWithRigidBodies(const std::vector<Particle>& particles, con
 
     drawParticles(particles, m_view_proj);
     drawBoundaryBox(m_view_proj);
-    static const float rigidColors[][3] = {
-        {1.0f, 0.45f, 0.25f},
-        {0.35f, 0.85f, 0.45f},
-        {0.35f, 0.60f, 1.00f},
-        {1.00f, 0.85f, 0.30f}
-    };
+
+    float minDensity = std::numeric_limits<float>::max();
+    float maxDensity = std::numeric_limits<float>::lowest();
+    for (const auto& body : bodies) {
+        minDensity = std::min(minDensity, body.density());
+        maxDensity = std::max(maxDensity, body.density());
+    }
+    const float densityRange = std::max(1e-6f, maxDensity - minDensity);
 
     for (size_t i = 0; i < bodies.size(); ++i) {
-        drawRigidBody(bodies[i], m_view_proj, rigidColors[i % 4]);
+        const float t = (bodies[i].density() - minDensity) / densityRange;
+        const float color[3] = {
+            0.25f + 0.75f * t,
+            0.90f - 0.45f * t,
+            0.35f + 0.55f * (1.f - t)
+        };
+        drawRigidBody(bodies[i], m_view_proj, color, t);
     }
 }
 
-void Renderer::drawRigidBody(const RigidBody& body, const glm::mat4& m_view_proj, const float color[3]) {
+void Renderer::drawRigidBody(const RigidBody& body, const glm::mat4& m_view_proj, const float color[3], float densityT) {
     const auto& samples = body.worldSamples();
     if (samples.empty()) return;
 
     glUseProgram(particleShader);
     glUniformMatrix4fv(glGetUniformLocation(particleShader, "u_mat_view_proj"), 1, GL_FALSE, glm::value_ptr(m_view_proj));
-    glUniform1f(glGetUniformLocation(particleShader, "u_point_size"), Sim::params.pointSize * 1.5f);
+    glUniform1f(glGetUniformLocation(particleShader, "u_point_size"), Sim::params.pointSize * (1.15f + 0.45f * densityT));
 
     glUniform3fv(glGetUniformLocation(particleShader, "u_color"), 1, color);
     glUniform1i(glGetUniformLocation(particleShader, "u_velocity_coloring"), 0);
