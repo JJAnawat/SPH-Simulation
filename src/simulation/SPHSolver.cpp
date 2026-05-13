@@ -13,74 +13,157 @@ void SPHSolver::updateGrid(){
 }
 
 void SPHSolver::computeDensityPressure() {
-    std::vector<Particle> n_particles = particles;
-    for(int i=0;i<n_particles.size();i++){
-        Particle &pi = n_particles[i];
-        pi.density = Sim::params.p_mass * w_poly6(glm::vec3(0.f)); // self contribution
+    const float h2 = Sim::params.h * Sim::params.h;
 
-        auto neighbors = grid.query(pi.position);
-        for(int j : neighbors){
-            if(i==j) continue; 
-            Particle &pj = particles[j];
-            
-            glm::vec3 r = pj.position - pi.position;
-            if(glm::length(r) > Sim::params.h)
-                continue;
+    const int particleCount = static_cast<int>(particles.size());
 
-            // pi.density += pj.mass * w_poly6(r);
-            pi.density += Sim::params.p_mass * w_poly6(r);
+    #ifdef _OPENMP
+    #pragma omp parallel
+        {
+        std::vector<int> neighbors;
+        neighbors.reserve(128);
+
+        #pragma omp for schedule(static)
+            for (int i = 0; i < particleCount; ++i) {
+                Particle& pi = particles[i];
+                pi.density = Sim::params.p_mass * w_poly6(glm::vec3(0.f)); // self contribution
+
+                grid.query(pi.position, neighbors);
+                for (int j : neighbors) {
+                    if (i == j) continue;
+                    Particle& pj = particles[j];
+
+                    glm::vec3 r = pj.position - pi.position;
+                    if(glm::length(r) > Sim::params.h)
+                        continue;
+
+                    pi.density += Sim::params.p_mass * w_poly6(r);
+                }
+
+                pi.pressure = std::max(0.f, Sim::params.k * (pi.density - Sim::params.rho0));
+            }
+        #pragma omp barrier
         }
+    #else
+        std::vector<int> neighbors;
+        neighbors.reserve(128);
 
-        pi.pressure = std::max(0.f, Sim::params.k * (pi.density - Sim::params.rho0)); 
+        for (int i = 0; i < particleCount; ++i) {
+            Particle& pi = particles[i];
+            pi.density = Sim::params.p_mass * w_poly6(glm::vec3(0.f)); // self contribution
+
+            grid.query(pi.position, neighbors);
+            for (int j : neighbors) {
+                if (i == j) continue;
+                Particle& pj = particles[j];
+
+                glm::vec3 r = pj.position - pi.position;
+                if(glm::length(r) > Sim::params.h)
+                    continue;
+
+                pi.density += Sim::params.p_mass * w_poly6(r);
+            }
+
+            pi.pressure = std::max(0.f, Sim::params.k * (pi.density - Sim::params.rho0));
+        }
+    #endif
     }
-
-    particles = n_particles;
-}
 
 void SPHSolver::computeForces(){
-    for(auto &pi : particles){
-        glm::vec3 f_press(0.f);
-        glm::vec3 f_visc(0.f);
+    const int particleCount = static_cast<int>(particles.size());
 
-        if(pi.density < 1e-6){
-            pi.acceleration = glm::vec3(0.f, Sim::params.gravity, 0.f);
-            continue;
-        }
+    #ifdef _OPENMP
+    #pragma omp parallel
+        {
+        std::vector<int> neighbors;
+        neighbors.reserve(128);
 
-        auto neighbors = grid.query(pi.position);
-        for(int j : neighbors){
-            Particle &pj = particles[j];
-            if(&pi == &pj) continue; 
-        
-            glm::vec3 r = pj.position - pi.position;
-            float r_len = glm::length(r);
-            if(r_len < 1e-6 || r_len > Sim::params.h)
+    #pragma omp for schedule(static)
+        for (int i = 0; i < particleCount; ++i) {
+            Particle& pi = particles[i];
+            glm::vec3 f_press(0.f);
+            glm::vec3 f_visc(0.f);
+
+            if (pi.density < 1e-6f) {
+                pi.acceleration = glm::vec3(0.f, Sim::params.gravity, 0.f);
                 continue;
+            }
 
-            f_press += glm::normalize(r) * Sim::params.p_mass * ((pi.pressure + pj.pressure) / (2 * pj.density)) * grad_w_spiky(r);
-            f_visc += Sim::params.mu * Sim::params.p_mass * (pj.velocity - pi.velocity) / pj.density * laplacian_w_viscosity(r);
+            grid.query(pi.position, neighbors);
+            for (int j : neighbors) {
+                Particle& pj = particles[j];
+                if (&pi == &pj) continue;
+
+                glm::vec3 r = pj.position - pi.position;
+                float r_len = glm::length(r);
+                if (r_len < 1e-6f || r_len > Sim::params.h)
+                    continue;
+
+                f_press += glm::normalize(r) * Sim::params.p_mass * ((pi.pressure + pj.pressure) / (2 * pj.density)) * grad_w_spiky(r);
+                f_visc += Sim::params.mu * Sim::params.p_mass * (pj.velocity - pi.velocity) / pj.density * laplacian_w_viscosity(r);
+            }
+
+            pi.acceleration = (f_press + f_visc) / pi.density + glm::vec3(0.f, Sim::params.gravity, 0.f); // Pressure + Viscosity + Gravity
         }
+    #pragma omp barrier
+        }
+    #else
+        std::vector<int> neighbors;
+        neighbors.reserve(128);
 
-        pi.acceleration = (f_press + f_visc) / pi.density + glm::vec3(0.f, Sim::params.gravity, 0.f); // Pressure + Viscosity + Gravity
+        for (auto& pi : particles) {
+            glm::vec3 f_press(0.f);
+            glm::vec3 f_visc(0.f);
+
+            if (pi.density < 1e-6f) {
+                pi.acceleration = glm::vec3(0.f, Sim::params.gravity, 0.f);
+                continue;
+            }
+
+            grid.query(pi.position, neighbors);
+            for (int j : neighbors) {
+                Particle& pj = particles[j];
+                if (&pi == &pj) continue;
+
+                glm::vec3 r = pj.position - pi.position;
+                float r_len = glm::length(r);
+                if (r_len < 1e-6f || r_len > Sim::params.h)
+                    continue;
+
+                f_press += glm::normalize(r) * Sim::params.p_mass * ((pi.pressure + pj.pressure) / (2 * pj.density)) * grad_w_spiky(r);
+                f_visc += Sim::params.mu * Sim::params.p_mass * (pj.velocity - pi.velocity) / pj.density * laplacian_w_viscosity(r);
+            }
+
+            pi.acceleration = (f_press + f_visc) / pi.density + glm::vec3(0.f, Sim::params.gravity, 0.f); // Pressure + Viscosity + Gravity
+        }
+    #endif
     }
-}
 
-void SPHSolver::applyRigidBoundaryCoupling(std::vector<RigidBody>& rigidBodies, bool accumulateToRigid) {
+void SPHSolver::applyRigidBoundaryCoupling(std::vector<RigidBody>& rigidBodies, bool accumulateToRigid, float dt) {
     if (rigidBodies.empty()) return;
 
     const float h = Sim::params.h;
     const float h2 = h * h;
     const float eps = 1e-6f;
+    std::vector<int> nearbyParticles;
+    nearbyParticles.reserve(128);
+
+    // maximum allowed velocity change from coupling per substep
+    const float maxDv = 5.f;
+    const float invDtForClamp = (dt > 1e-8f) ? (1.f / dt) : 1e8f;
 
     for (auto& body : rigidBodies) {
         if (accumulateToRigid) body.clearAccumulators();
 
         const auto& samples = body.worldSamples();
+        if (samples.empty()) continue;
+        const float sampleWeight = 1.f / static_cast<float>(samples.size());
+
         for (const auto& sampleWorldPos : samples) {
             const glm::vec3 sampleVelocity =
                 body.linearVelocity() + glm::cross(body.angularVelocity(), sampleWorldPos - body.position());
 
-            auto nearbyParticles = grid.query(sampleWorldPos);
+            grid.query(sampleWorldPos, nearbyParticles);
             for (int pIdx : nearbyParticles) {
                 Particle& p = particles[pIdx];
                 const glm::vec3 d = p.position - sampleWorldPos;
@@ -98,11 +181,20 @@ void SPHSolver::applyRigidBoundaryCoupling(std::vector<RigidBody>& rigidBodies, 
                 const float dampingTerm = std::max(0.f, -normalSpeed) * Sim::params.rigidBoundaryDamping;
                 const float stiffnessTerm = Sim::params.rigidBoundaryStiffness * (penetration / h);
 
-                const float accelTerm = stiffnessTerm + dampingTerm; // acceleration to add to particle
-                p.acceleration += normal * accelTerm;
+                const float rawAccel = stiffnessTerm + dampingTerm;
+
+                // spatial weight (fade with distance) and per-sample normalization
+                const float spatialWeight = std::max(0.f, (h - dist) / h);
+                float accelMag = rawAccel * spatialWeight * sampleWeight;
+
+                // clamp by max dv per substep to avoid explosive impulses
+                const float maxAccel = maxDv * invDtForClamp;
+                if (accelMag > maxAccel) accelMag = maxAccel;
+
+                p.acceleration += normal * accelMag;
 
                 if (accumulateToRigid) {
-                    const glm::vec3 forceOnParticle = p.mass * normal * accelTerm;
+                    const glm::vec3 forceOnParticle = Sim::params.p_mass * normal * accelMag;
                     const glm::vec3 forceOnRigid = -forceOnParticle;
                     body.applyForceAtPoint(forceOnRigid, sampleWorldPos);
                 }
@@ -139,7 +231,7 @@ void SPHSolver::step(float dt, std::vector<RigidBody>& rigidBodies) {
     // If two-way coupling enabled, accumulate forces/torques on rigid bodies then integrate them
     if (Sim::params.rigidTwoWayCoupling) {
         // Compute interactions and accumulate on rigid bodies
-        applyRigidBoundaryCoupling(rigidBodies, true);
+        applyRigidBoundaryCoupling(rigidBodies, true, dt);
 
         // Integrate rigid bodies using accumulated forces and gravity
         for (auto& body : rigidBodies) {
@@ -148,11 +240,11 @@ void SPHSolver::step(float dt, std::vector<RigidBody>& rigidBodies) {
         }
 
         // After rigid moved, apply boundary response to fluid particles using updated samples
-        applyRigidBoundaryCoupling(rigidBodies, false);
+        applyRigidBoundaryCoupling(rigidBodies, false, dt);
     }
     else if (Sim::params.rigidOneWayCoupling) {
         // simple one-way: apply particle acceleration due to rigid samples (no forces to rigid)
-        applyRigidBoundaryCoupling(rigidBodies, false);
+        applyRigidBoundaryCoupling(rigidBodies, false, dt);
     }
 
     // When two-way coupling is disabled we still need to integrate rigid bodies (gravity, etc.).

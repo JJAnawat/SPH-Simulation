@@ -188,21 +188,27 @@ void Renderer::renderWithRigidBodies(const std::vector<Particle>& particles, con
 
     drawParticles(particles, m_view_proj);
     drawBoundaryBox(m_view_proj);
-    for (const auto& body : bodies) {
-        drawRigidBody(body, m_view_proj);
+    static const float rigidColors[][3] = {
+        {1.0f, 0.45f, 0.25f},
+        {0.35f, 0.85f, 0.45f},
+        {0.35f, 0.60f, 1.00f},
+        {1.00f, 0.85f, 0.30f}
+    };
+
+    for (size_t i = 0; i < bodies.size(); ++i) {
+        drawRigidBody(bodies[i], m_view_proj, rigidColors[i % 4]);
     }
 }
 
-void Renderer::drawRigidBody(const RigidBody& body, const glm::mat4& m_view_proj) {
+void Renderer::drawRigidBody(const RigidBody& body, const glm::mat4& m_view_proj, const float color[3]) {
     const auto& samples = body.worldSamples();
     if (samples.empty()) return;
 
     glUseProgram(particleShader);
     glUniformMatrix4fv(glGetUniformLocation(particleShader, "u_mat_view_proj"), 1, GL_FALSE, glm::value_ptr(m_view_proj));
     glUniform1f(glGetUniformLocation(particleShader, "u_point_size"), Sim::params.pointSize * 1.5f);
-    
-    float sampleColor[3] = {1.f, 0.5f, 0.2f};
-    glUniform3fv(glGetUniformLocation(particleShader, "u_color"), 1, sampleColor);
+
+    glUniform3fv(glGetUniformLocation(particleShader, "u_color"), 1, color);
     glUniform1i(glGetUniformLocation(particleShader, "u_velocity_coloring"), 0);
     glUniform1f(glGetUniformLocation(particleShader, "u_max_speed"), 1.f);
 

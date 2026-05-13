@@ -3,8 +3,9 @@
 
 #include <glm/glm.hpp>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
+#include <mutex>
+#include <memory>
 
 struct SpatialHash{
     private:
@@ -19,7 +20,7 @@ struct SpatialHash{
         SpatialHash(float cs) : cell_size(cs) {}
 
         void insert(const std::vector<glm::vec3>& particles_pos);
-        std::vector<int> query(const glm::vec3 &real_pos);
+        void query(const glm::vec3 &real_pos, std::vector<int>& candidates) const;
         
         void clear();
 };

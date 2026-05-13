@@ -22,7 +22,7 @@ class Renderer {
         unsigned int linkProgram(unsigned int vert, unsigned int frag);
         void drawParticles(const std::vector<Particle>& particles, const glm::mat4& m_view_proj);
         void drawBoundaryBox(const glm::mat4& m_view_proj);
-        void drawRigidBody(const RigidBody& body, const glm::mat4& m_view_proj);
+        void drawRigidBody(const RigidBody& body, const glm::mat4& m_view_proj, const float color[3]);
 
     public:
         void init();

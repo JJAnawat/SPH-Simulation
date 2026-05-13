@@ -4,8 +4,6 @@
 #include "SimParams.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
-#include <vector>
-#include <algorithm>
 
 float w_poly6(glm::vec3 r){
     return (315.f / (64.f * glm::pi<float>() * pow(Sim::params.h, 9))) * pow(Sim::params.h * Sim::params.h - glm::dot(r, r), 3);

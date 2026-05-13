@@ -24,15 +24,15 @@ struct SimParams {
     bool showRigidBodies = false;
     bool rigidOneWayCoupling = false;
     bool rigidTwoWayCoupling = false;
-    int particleCount = 0;
+    int fluidParticleCount = 1000;
 
     // Rigid-fluid coupling (one-way for now)
-    float rigidBoundaryStiffness = 80.f;
-    float rigidBoundaryDamping = 6.f;
+    float rigidBoundaryStiffness = 18.f;
+    float rigidBoundaryDamping = 12.f;
 
     // Rigid-box collision
-    float rigidWallBounce = 0.5f;
-    float rigidAngularWallDamping = 0.8f;
+    float rigidWallBounce = 0.15f;
+    float rigidAngularWallDamping = 0.55f;
 
     // Box
     float boxMin[3] = {-0.5f, -0.5f, -0.5f};
