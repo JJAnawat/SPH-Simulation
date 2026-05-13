@@ -17,16 +17,40 @@ void SPHSolver::computeDensityPressure() {
 
     const int particleCount = static_cast<int>(particles.size());
 
-#ifdef _OPENMP
-#pragma omp parallel
-    {
+    #ifdef _OPENMP
+    #pragma omp parallel
+        {
         std::vector<int> neighbors;
         neighbors.reserve(128);
 
-#pragma omp for schedule(static)
+        #pragma omp for schedule(static)
+            for (int i = 0; i < particleCount; ++i) {
+                Particle& pi = particles[i];
+                pi.density = Sim::params.p_mass * w_poly6(glm::vec3(0.f)); // self contribution
+
+                grid.query(pi.position, neighbors);
+                for (int j : neighbors) {
+                    if (i == j) continue;
+                    Particle& pj = particles[j];
+
+                    glm::vec3 r = pj.position - pi.position;
+                    if(glm::length(r) > Sim::params.h)
+                        continue;
+
+                    pi.density += Sim::params.p_mass * w_poly6(r);
+                }
+
+                pi.pressure = std::max(0.f, Sim::params.k * (pi.density - Sim::params.rho0));
+            }
+        #pragma omp barrier
+        }
+    #else
+        std::vector<int> neighbors;
+        neighbors.reserve(128);
+
         for (int i = 0; i < particleCount; ++i) {
             Particle& pi = particles[i];
-            pi.density = Sim::params.p_mass * w_poly6(0.f); // self contribution
+            pi.density = Sim::params.p_mass * w_poly6(glm::vec3(0.f)); // self contribution
 
             grid.query(pi.position, neighbors);
             for (int j : neighbors) {
@@ -34,54 +58,27 @@ void SPHSolver::computeDensityPressure() {
                 Particle& pj = particles[j];
 
                 glm::vec3 r = pj.position - pi.position;
-                const float r2 = glm::dot(r, r);
-                if (r2 > h2)
+                if(glm::length(r) > Sim::params.h)
                     continue;
 
-                // pi.density += pj.mass * w_poly6(r);
-                pi.density += Sim::params.p_mass * w_poly6(r2);
+                pi.density += Sim::params.p_mass * w_poly6(r);
             }
 
             pi.pressure = std::max(0.f, Sim::params.k * (pi.density - Sim::params.rho0));
         }
-#pragma omp barrier
+    #endif
     }
-#else
-    std::vector<int> neighbors;
-    neighbors.reserve(128);
-
-    for (int i = 0; i < particleCount; ++i) {
-        Particle& pi = particles[i];
-        pi.density = Sim::params.p_mass * w_poly6(0.f); // self contribution
-
-        grid.query(pi.position, neighbors);
-        for (int j : neighbors) {
-            if (i == j) continue;
-            Particle& pj = particles[j];
-
-            glm::vec3 r = pj.position - pi.position;
-            const float r2 = glm::dot(r, r);
-            if (r2 > h2)
-                continue;
-
-            pi.density += Sim::params.p_mass * w_poly6(r2);
-        }
-
-        pi.pressure = std::max(0.f, Sim::params.k * (pi.density - Sim::params.rho0));
-    }
-#endif
-}
 
 void SPHSolver::computeForces(){
     const int particleCount = static_cast<int>(particles.size());
 
-#ifdef _OPENMP
-#pragma omp parallel
-    {
+    #ifdef _OPENMP
+    #pragma omp parallel
+        {
         std::vector<int> neighbors;
         neighbors.reserve(128);
 
-#pragma omp for schedule(static)
+    #pragma omp for schedule(static)
         for (int i = 0; i < particleCount; ++i) {
             Particle& pi = particles[i];
             glm::vec3 f_press(0.f);
@@ -102,47 +99,45 @@ void SPHSolver::computeForces(){
                 if (r_len < 1e-6f || r_len > Sim::params.h)
                     continue;
 
-                const glm::vec3 direction = r / r_len;
-                f_press += direction * Sim::params.p_mass * ((pi.pressure + pj.pressure) / (2 * pj.density)) * grad_w_spiky(r_len);
-                f_visc += Sim::params.mu * Sim::params.p_mass * (pj.velocity - pi.velocity) / pj.density * laplacian_w_viscosity(r_len);
+                f_press += glm::normalize(r) * Sim::params.p_mass * ((pi.pressure + pj.pressure) / (2 * pj.density)) * grad_w_spiky(r);
+                f_visc += Sim::params.mu * Sim::params.p_mass * (pj.velocity - pi.velocity) / pj.density * laplacian_w_viscosity(r);
             }
 
             pi.acceleration = (f_press + f_visc) / pi.density + glm::vec3(0.f, Sim::params.gravity, 0.f); // Pressure + Viscosity + Gravity
         }
-#pragma omp barrier
-    }
-#else
-    std::vector<int> neighbors;
-    neighbors.reserve(128);
-
-    for (auto& pi : particles) {
-        glm::vec3 f_press(0.f);
-        glm::vec3 f_visc(0.f);
-
-        if (pi.density < 1e-6f) {
-            pi.acceleration = glm::vec3(0.f, Sim::params.gravity, 0.f);
-            continue;
+    #pragma omp barrier
         }
+    #else
+        std::vector<int> neighbors;
+        neighbors.reserve(128);
 
-        grid.query(pi.position, neighbors);
-        for (int j : neighbors) {
-            Particle& pj = particles[j];
-            if (&pi == &pj) continue;
+        for (auto& pi : particles) {
+            glm::vec3 f_press(0.f);
+            glm::vec3 f_visc(0.f);
 
-            glm::vec3 r = pj.position - pi.position;
-            float r_len = glm::length(r);
-            if (r_len < 1e-6f || r_len > Sim::params.h)
+            if (pi.density < 1e-6f) {
+                pi.acceleration = glm::vec3(0.f, Sim::params.gravity, 0.f);
                 continue;
+            }
 
-            const glm::vec3 direction = r / r_len;
-            f_press += direction * Sim::params.p_mass * ((pi.pressure + pj.pressure) / (2 * pj.density)) * grad_w_spiky(r_len);
-            f_visc += Sim::params.mu * Sim::params.p_mass * (pj.velocity - pi.velocity) / pj.density * laplacian_w_viscosity(r_len);
+            grid.query(pi.position, neighbors);
+            for (int j : neighbors) {
+                Particle& pj = particles[j];
+                if (&pi == &pj) continue;
+
+                glm::vec3 r = pj.position - pi.position;
+                float r_len = glm::length(r);
+                if (r_len < 1e-6f || r_len > Sim::params.h)
+                    continue;
+
+                f_press += glm::normalize(r) * Sim::params.p_mass * ((pi.pressure + pj.pressure) / (2 * pj.density)) * grad_w_spiky(r);
+                f_visc += Sim::params.mu * Sim::params.p_mass * (pj.velocity - pi.velocity) / pj.density * laplacian_w_viscosity(r);
+            }
+
+            pi.acceleration = (f_press + f_visc) / pi.density + glm::vec3(0.f, Sim::params.gravity, 0.f); // Pressure + Viscosity + Gravity
         }
-
-        pi.acceleration = (f_press + f_visc) / pi.density + glm::vec3(0.f, Sim::params.gravity, 0.f); // Pressure + Viscosity + Gravity
+    #endif
     }
-#endif
-}
 
 void SPHSolver::applyRigidBoundaryCoupling(std::vector<RigidBody>& rigidBodies, bool accumulateToRigid) {
     if (rigidBodies.empty()) return;
@@ -197,12 +192,6 @@ void SPHSolver::integrateFluid(float dt) {
     for (auto &p : particles) {
         p.velocity += p.acceleration * dt;
         p.position += p.velocity * dt;
-
-        //temporary bug fix clamp velocity to be less than 100
-        if (glm::length(p.velocity) > 10.f) {
-            p.velocity = glm::normalize(p.velocity) * 10.f;
-        }
-        
 
         // Catch NaN
         if (glm::any(glm::isnan(p.position))) {

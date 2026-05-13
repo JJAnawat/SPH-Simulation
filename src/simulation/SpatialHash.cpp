@@ -18,7 +18,6 @@ glm::ivec3 SpatialHash::cell_pos(const glm::vec3 &real_pos) const {
 }
 
 void SpatialHash::insert(const std::vector<glm::vec3>& particles_pos) {
-    std::lock_guard<std::mutex> lock(*grid_mutex);
     grid.reserve(particles_pos.size());
     for(int i=0; i<particles_pos.size();i++){
         glm::ivec3 grid_idx = cell_pos(particles_pos[i]);
@@ -28,7 +27,6 @@ void SpatialHash::insert(const std::vector<glm::vec3>& particles_pos) {
 }
 
 void SpatialHash::query(const glm::vec3 &real_pos, std::vector<int>& candidates) const {
-    std::lock_guard<std::mutex> lock(*grid_mutex);
     glm::ivec3 grid_idx = cell_pos(real_pos);
     candidates.clear();
     candidates.reserve(64);
@@ -49,6 +47,5 @@ void SpatialHash::query(const glm::vec3 &real_pos, std::vector<int>& candidates)
 }  
 
 void SpatialHash::clear() {
-    std::lock_guard<std::mutex> lock(*grid_mutex);
     grid.clear();
 }
