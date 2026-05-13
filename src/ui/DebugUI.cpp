@@ -23,7 +23,7 @@ void DebugUI::render() {
     
     // Info
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-    ImGui::Text("Particles: %d", Sim::params.particleCount);
+    ImGui::Text("Particles: %d", Sim::params.fluidParticleCount);
     ImGui::Separator();
 
     if (ImGui::Button("Reset")) Sim::params.resetRequested = true;
@@ -40,11 +40,6 @@ void DebugUI::render() {
             if (exactCount > 30000) exactCount = 30000;
             Sim::params.fluidParticleCount = exactCount;
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Apply Count")) {
-            Sim::params.resetRequested = true;
-        }
-
         ImGui::SliderInt("Fluid Particle Count", &Sim::params.fluidParticleCount, 1, 30000);
         ImGui::SliderFloat("Particle Mass", &Sim::params.p_mass, 0.1f, 5.0f);
         ImGui::SliderFloat("Smoothing Radius (h)", &Sim::params.h,       0.01f,   0.5f);

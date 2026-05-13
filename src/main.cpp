@@ -18,18 +18,6 @@ static std::vector<RigidBody> createRigidBodies() {
     return bodies;
 }
 
-static void applyStableDemoDefaults() {
-    Sim::params.p_mass = 0.25f;
-    Sim::params.rho0 = 1000.f;
-    Sim::params.k = 1.2f;
-    Sim::params.mu = 4.0f;
-
-    Sim::params.rigidBoundaryStiffness = 18.f;
-    Sim::params.rigidBoundaryDamping = 12.f;
-    Sim::params.rigidWallBounce = 0.15f;
-    Sim::params.rigidAngularWallDamping = 0.55f;
-}
-
 static std::vector<Particle> createFluidParticles(int count) {
     count = std::max(count, 1);
 
@@ -197,7 +185,6 @@ int main() {
     Renderer renderer;
     renderer.init();
 
-    applyStableDemoDefaults();
     auto particles = createFluidParticles(Sim::params.fluidParticleCount);
     SPHSolver solver(Sim::params.h, particles);
     std::vector<RigidBody> rigidBodies = createRigidBodies();
@@ -205,21 +192,17 @@ int main() {
     Sim::params.showRigidBodies = true;
     Sim::params.rigidTwoWayCoupling = true;
 
-    Sim::params.particleCount = (int)solver.getParticles().size();
-
     while (!window.shouldClose()) {
         window.pollEvents();
 
         if (Sim::params.resetRequested){
-            applyStableDemoDefaults();
             particles = createFluidParticles(Sim::params.fluidParticleCount);
             solver = SPHSolver(Sim::params.h, particles);
             rigidBodies = createRigidBodies();
-            Sim::params.particleCount = (int)solver.getParticles().size();
             Sim::params.resetRequested = false;
         }
         if (!Sim::params.paused) {
-            solver.step(0.0015f, rigidBodies);
+            solver.step(0.01f, rigidBodies);
             // Rigid bodies are integrated inside solver when two-way coupling is enabled.
             for (auto& body : rigidBodies) {
                 resolveRigidBodyBoxCollision(body);
