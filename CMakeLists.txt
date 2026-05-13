@@ -3,6 +3,9 @@ project(SPHSimulation)
 
 set(CMAKE_CXX_STANDARD 17)
 
+# OpenMP for parallel processing
+find_package(OpenMP REQUIRED)
+
 # GLFW - disable extras we don't need
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -36,7 +39,7 @@ target_include_directories(SPHSimulation PRIVATE
     external/glm
 )
 
-target_link_libraries(SPHSimulation PRIVATE glfw glad imgui)
+target_link_libraries(SPHSimulation PRIVATE glfw glad imgui OpenMP::OpenMP_CXX)
 
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)

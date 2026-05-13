@@ -19,6 +19,8 @@ public:
         body.m_position = position;
         body.m_mass = mass;
         body.m_halfExtents = halfExtents;
+        const float volume = 8.f * halfExtents.x * halfExtents.y * halfExtents.z;
+        body.m_density = volume > 0.f ? mass / volume : 0.f;
 
         const float x = halfExtents.x;
         const float y = halfExtents.y;
@@ -54,6 +56,8 @@ public:
         body.m_position = position;
         body.m_mass = mass;
         body.m_halfExtents = glm::vec3(radius);
+        const float volume = (4.f / 3.f) * glm::pi<float>() * radius * radius * radius;
+        body.m_density = volume > 0.f ? mass / volume : 0.f;
 
         const float inertiaValue = 0.4f * mass * radius * radius;
         body.m_localInertia = glm::mat3(0.f);
@@ -134,6 +138,7 @@ public:
     const glm::vec3& linearVelocity() const { return m_linearVelocity; }
     const glm::vec3& angularVelocity() const { return m_angularVelocity; }
     float mass() const { return m_mass; }
+    float density() const { return m_density; }
     const glm::mat3& localInertia() const { return m_localInertia; }
     const glm::mat3& inverseLocalInertia() const { return m_inverseLocalInertia; }
     const std::vector<glm::vec3>& localSamples() const { return m_localSamples; }
@@ -223,6 +228,7 @@ private:
     glm::vec3 m_force{0.f};
     glm::vec3 m_torque{0.f};
     float m_mass = 1.f;
+    float m_density = 0.f;
     glm::vec3 m_halfExtents{0.5f};
     glm::mat3 m_localInertia{1.f};
     glm::mat3 m_inverseLocalInertia{1.f};

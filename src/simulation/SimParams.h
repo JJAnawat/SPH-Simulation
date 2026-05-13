@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cmath>
+#include <glm/glm.hpp>
+
 struct CameraParams {
     float distance = 2.f;
     float yaw = 0.f;
@@ -15,7 +18,9 @@ struct SimParams {
     float p_mass = 1.f; // particle mass
 
     // World
-    float gravity = -9.8f;
+    float gravity = 9.8f;
+    float gravityYaw = 0.f;
+    float gravityPitch = -90.f;
     float damp = 0.3f;
 
     // Control flags
@@ -42,6 +47,18 @@ struct SimParams {
     float pointSize        = 8.f;
     float particleColor[3] = {0.2f, 0.6f, 1.f};
     bool velocityColoring = true;
+
+    glm::vec3 gravityVector() const {
+        const float degToRad = 0.017453292519943295769f;
+        const float yaw = gravityYaw * degToRad;
+        const float pitch = gravityPitch * degToRad;
+        const glm::vec3 direction(
+            std::cos(pitch) * std::sin(yaw),
+            std::sin(pitch),
+            std::cos(pitch) * std::cos(yaw)
+        );
+        return gravity * direction;
+    }
 };
 
 namespace Sim {
