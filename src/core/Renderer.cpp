@@ -113,6 +113,22 @@ void Renderer::init(){
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
     
+    // Rigid body mesh VAO (for surface rendering)
+    meshShader = linkProgram(
+        compileShader(GL_VERTEX_SHADER, "shaders/mesh.vert"),
+        compileShader(GL_FRAGMENT_SHADER, "shaders/mesh.frag")
+    );
+    
+    glGenVertexArrays(1, &rigidMeshVAO);
+    glGenBuffers(1, &rigidMeshVBO);
+    glGenBuffers(1, &rigidMeshEBO);
+    glBindVertexArray(rigidMeshVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, rigidMeshVBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, rigidMeshEBO);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glEnableVertexAttribArray(0);
+    glBindVertexArray(0);
+    
     // Bounding box
     boxShader = linkProgram(
         compileShader(GL_VERTEX_SHADER, "shaders/box.vert"),
@@ -210,22 +226,31 @@ void Renderer::renderWithRigidBodies(const std::vector<Particle>& particles, con
 }
 
 void Renderer::drawRigidBody(const RigidBody& body, const glm::mat4& m_view_proj, const float color[3], float densityT) {
-    const auto& samples = body.worldSamples();
-    if (samples.empty()) return;
-
-    glUseProgram(particleShader);
-    glUniformMatrix4fv(glGetUniformLocation(particleShader, "u_mat_view_proj"), 1, GL_FALSE, glm::value_ptr(m_view_proj));
-    glUniform1f(glGetUniformLocation(particleShader, "u_point_size"), Sim::params.pointSize * (1.15f + 0.45f * densityT));
-
-    glUniform3fv(glGetUniformLocation(particleShader, "u_color"), 1, color);
-    glUniform1i(glGetUniformLocation(particleShader, "u_velocity_coloring"), 0);
-    glUniform1f(glGetUniformLocation(particleShader, "u_max_speed"), 1.f);
-
-    glBindVertexArray(rigidSampleVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, rigidSampleVBO);
-    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(samples.size() * sizeof(glm::vec3)), samples.data(), GL_DYNAMIC_DRAW);
+    const auto& vertices = body.meshVertices();
+    const auto& indices = body.meshIndices();
     
-    glDrawArrays(GL_POINTS, 0, (GLsizei)samples.size());
+    if (vertices.empty() || indices.empty()) return;
+
+    glUseProgram(meshShader);
+    
+    // Set uniforms
+    glUniformMatrix4fv(glGetUniformLocation(meshShader, "u_mat_view_proj"), 1, GL_FALSE, glm::value_ptr(m_view_proj));
+    glm::mat4 modelMatrix = body.getTransformMatrix();
+    glUniformMatrix4fv(glGetUniformLocation(meshShader, "u_mat_model"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
+    glUniform3fv(glGetUniformLocation(meshShader, "u_color"), 1, color);
+    
+    // Simple light position (can be made dynamic later)
+    glm::vec3 lightPos = glm::vec3(5.f, 5.f, 5.f);
+    glUniform3fv(glGetUniformLocation(meshShader, "u_light_pos"), 1, glm::value_ptr(lightPos));
+
+    // Update mesh data
+    glBindVertexArray(rigidMeshVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, rigidMeshVBO);
+    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(vertices.size() * sizeof(glm::vec3)), vertices.data(), GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, rigidMeshEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)(indices.size() * sizeof(unsigned int)), indices.data(), GL_DYNAMIC_DRAW);
+    
+    glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }
 
@@ -239,4 +264,8 @@ void Renderer::shutdown(){
     glDeleteProgram(boxShader);
     glDeleteVertexArrays(1, &rigidSampleVAO);
     glDeleteBuffers(1, &rigidSampleVBO);
+    glDeleteVertexArrays(1, &rigidMeshVAO);
+    glDeleteBuffers(1, &rigidMeshVBO);
+    glDeleteBuffers(1, &rigidMeshEBO);
+    glDeleteProgram(meshShader);
 }

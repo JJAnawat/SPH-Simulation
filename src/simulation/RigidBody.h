@@ -144,13 +144,96 @@ public:
     const std::vector<glm::vec3>& localSamples() const { return m_localSamples; }
     const std::vector<glm::vec3>& worldSamples() const { return m_worldSamples; }
     size_t sampleCount() const { return m_worldSamples.size(); }
+    
+    const std::vector<glm::vec3>& meshVertices() const { return m_meshVertices; }
+    const std::vector<unsigned int>& meshIndices() const { return m_meshIndices; }
 
     glm::mat3 getInverseInertiaWorld() const {
         const glm::mat3 rotation = glm::mat3_cast(m_orientation);
         return rotation * m_inverseLocalInertia * glm::transpose(rotation);
     }
+    
+    glm::mat4 getTransformMatrix() const {
+        glm::mat4 transform = glm::translate(glm::mat4(1.f), m_position);
+        transform *= glm::mat4_cast(m_orientation);
+        return transform;
+    }
 
 private:
+    void buildBoxMesh() {
+        m_meshVertices.clear();
+        m_meshIndices.clear();
+
+        const float x = m_halfExtents.x;
+        const float y = m_halfExtents.y;
+        const float z = m_halfExtents.z;
+
+        // Define 8 vertices of the box
+        m_meshVertices = {
+            {-x, -y, -z}, {x, -y, -z}, {x, y, -z}, {-x, y, -z},  // front face
+            {-x, -y,  z}, {x, -y,  z}, {x, y,  z}, {-x, y,  z},  // back face
+        };
+
+        // Define 12 triangles (2 per face)
+        m_meshIndices = {
+            // front face (z = -z)
+            0, 1, 2, 0, 2, 3,
+            // back face (z = z)
+            4, 6, 5, 4, 7, 6,
+            // left face (x = -x)
+            0, 3, 7, 0, 7, 4,
+            // right face (x = x)
+            1, 5, 6, 1, 6, 2,
+            // top face (y = y)
+            3, 2, 6, 3, 6, 7,
+            // bottom face (y = -y)
+            0, 4, 5, 0, 5, 1,
+        };
+    }
+
+    void buildSphereMesh(float radius, int rings, int sectors) {
+        m_meshVertices.clear();
+        m_meshIndices.clear();
+
+        rings = std::max(rings, 2);
+        sectors = std::max(sectors, 3);
+
+        // Generate vertices
+        for (int ring = 0; ring <= rings; ++ring) {
+            const float theta = glm::pi<float>() * static_cast<float>(ring) / static_cast<float>(rings);
+            const float sinTheta = std::sin(theta);
+            const float cosTheta = std::cos(theta);
+
+            for (int sector = 0; sector <= sectors; ++sector) {
+                const float phi = glm::two_pi<float>() * static_cast<float>(sector) / static_cast<float>(sectors);
+                const float sinPhi = std::sin(phi);
+                const float cosPhi = std::cos(phi);
+
+                m_meshVertices.push_back({
+                    radius * sinTheta * cosPhi,
+                    radius * cosTheta,
+                    radius * sinTheta * sinPhi
+                });
+            }
+        }
+
+        // Generate indices
+        for (int ring = 0; ring < rings; ++ring) {
+            for (int sector = 0; sector < sectors; ++sector) {
+                const int a = ring * (sectors + 1) + sector;
+                const int b = a + sectors + 1;
+
+                m_meshIndices.push_back(a);
+                m_meshIndices.push_back(b);
+                m_meshIndices.push_back(a + 1);
+
+                m_meshIndices.push_back(a + 1);
+                m_meshIndices.push_back(b);
+                m_meshIndices.push_back(b + 1);
+            }
+        }
+    }
+
     void buildBoxSamples(int samplesPerEdge) {
         m_localSamples.clear();
 
@@ -167,23 +250,32 @@ private:
             m_localSamples.push_back(sample);
         };
 
+        // Generate samples on all 6 faces of the box
         for (int i = 0; i < samplesPerEdge; ++i) {
-            const float u = last > 0 ? static_cast<float>(i) / static_cast<float>(last) : 0.f;
-            const float x = glm::mix(-m_halfExtents.x, m_halfExtents.x, u);
-
             for (int j = 0; j < samplesPerEdge; ++j) {
+                const float u = last > 0 ? static_cast<float>(i) / static_cast<float>(last) : 0.f;
                 const float v = last > 0 ? static_cast<float>(j) / static_cast<float>(last) : 0.f;
+                
+                const float x = glm::mix(-m_halfExtents.x, m_halfExtents.x, u);
                 const float y = glm::mix(-m_halfExtents.y, m_halfExtents.y, v);
-                const float z = glm::mix(-m_halfExtents.z, m_halfExtents.z, v);
+                const float z = glm::mix(-m_halfExtents.z, m_halfExtents.z, u);
+                const float w = glm::mix(-m_halfExtents.z, m_halfExtents.z, v);
 
+                // Front and back faces (z = ±halfExtent.z)
                 addUniqueSample({x, y, -m_halfExtents.z});
                 addUniqueSample({x, y,  m_halfExtents.z});
-                addUniqueSample({x, -m_halfExtents.y, z});
-                addUniqueSample({x,  m_halfExtents.y, z});
-                addUniqueSample({-m_halfExtents.x, x, y});
-                addUniqueSample({ m_halfExtents.x, x, y});
+                
+                // Left and right faces (x = ±halfExtent.x)
+                addUniqueSample({-m_halfExtents.x, y, z});
+                addUniqueSample({ m_halfExtents.x, y, z});
+                
+                // Top and bottom faces (y = ±halfExtent.y)
+                addUniqueSample({x, -m_halfExtents.y, w});
+                addUniqueSample({x,  m_halfExtents.y, w});
             }
         }
+        
+        buildBoxMesh();
     }
 
     void buildSphereSamples(float radius, int rings, int sectors) {
@@ -209,6 +301,8 @@ private:
                 });
             }
         }
+        
+        buildSphereMesh(radius, rings, sectors);
     }
 
     void updateWorldSamples() {
@@ -234,4 +328,6 @@ private:
     glm::mat3 m_inverseLocalInertia{1.f};
     std::vector<glm::vec3> m_localSamples;
     std::vector<glm::vec3> m_worldSamples;
+    std::vector<glm::vec3> m_meshVertices;
+    std::vector<unsigned int> m_meshIndices;
 };

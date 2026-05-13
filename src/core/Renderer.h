@@ -13,10 +13,12 @@ class Renderer {
     private:
         unsigned int boxShader = 0;
         unsigned int particleShader = 0;
+        unsigned int meshShader = 0;
         
         unsigned int boxVAO = 0, boxVBO = 0, boxEBO = 0;
         unsigned int particleVAO = 0, particleVBO = 0;
         unsigned int rigidSampleVAO = 0, rigidSampleVBO = 0;
+        unsigned int rigidMeshVAO = 0, rigidMeshVBO = 0, rigidMeshEBO = 0;
 
         unsigned int compileShader(unsigned int type, const std::string& path);
         unsigned int linkProgram(unsigned int vert, unsigned int frag);
