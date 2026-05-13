@@ -139,7 +139,7 @@ void SPHSolver::computeForces(){
     #endif
     }
 
-void SPHSolver::applyRigidBoundaryCoupling(std::vector<RigidBody>& rigidBodies, bool accumulateToRigid) {
+void SPHSolver::applyRigidBoundaryCoupling(std::vector<RigidBody>& rigidBodies, bool accumulateToRigid, float dt) {
     if (rigidBodies.empty()) return;
 
     const float h = Sim::params.h;
@@ -148,10 +148,17 @@ void SPHSolver::applyRigidBoundaryCoupling(std::vector<RigidBody>& rigidBodies, 
     std::vector<int> nearbyParticles;
     nearbyParticles.reserve(128);
 
+    // maximum allowed velocity change from coupling per substep
+    const float maxDv = 5.f;
+    const float invDtForClamp = (dt > 1e-8f) ? (1.f / dt) : 1e8f;
+
     for (auto& body : rigidBodies) {
         if (accumulateToRigid) body.clearAccumulators();
 
         const auto& samples = body.worldSamples();
+        if (samples.empty()) continue;
+        const float sampleWeight = 1.f / static_cast<float>(samples.size());
+
         for (const auto& sampleWorldPos : samples) {
             const glm::vec3 sampleVelocity =
                 body.linearVelocity() + glm::cross(body.angularVelocity(), sampleWorldPos - body.position());
@@ -173,13 +180,21 @@ void SPHSolver::applyRigidBoundaryCoupling(std::vector<RigidBody>& rigidBodies, 
                 const float normalSpeed = glm::dot(relVelocity, normal);
                 const float dampingTerm = std::max(0.f, -normalSpeed) * Sim::params.rigidBoundaryDamping;
                 const float stiffnessTerm = Sim::params.rigidBoundaryStiffness * (penetration / h);
-                
-                //now I cap accelTerm at 25
-                const float accelTerm = std::min(stiffnessTerm + dampingTerm, 25.f); // acceleration to add to particle
-                p.acceleration += normal * accelTerm;
+
+                const float rawAccel = stiffnessTerm + dampingTerm;
+
+                // spatial weight (fade with distance) and per-sample normalization
+                const float spatialWeight = std::max(0.f, (h - dist) / h);
+                float accelMag = rawAccel * spatialWeight * sampleWeight;
+
+                // clamp by max dv per substep to avoid explosive impulses
+                const float maxAccel = maxDv * invDtForClamp;
+                if (accelMag > maxAccel) accelMag = maxAccel;
+
+                p.acceleration += normal * accelMag;
 
                 if (accumulateToRigid) {
-                    const glm::vec3 forceOnParticle = p.mass * normal * accelTerm;
+                    const glm::vec3 forceOnParticle = Sim::params.p_mass * normal * accelMag;
                     const glm::vec3 forceOnRigid = -forceOnParticle;
                     body.applyForceAtPoint(forceOnRigid, sampleWorldPos);
                 }
@@ -216,7 +231,7 @@ void SPHSolver::step(float dt, std::vector<RigidBody>& rigidBodies) {
     // If two-way coupling enabled, accumulate forces/torques on rigid bodies then integrate them
     if (Sim::params.rigidTwoWayCoupling) {
         // Compute interactions and accumulate on rigid bodies
-        applyRigidBoundaryCoupling(rigidBodies, true);
+        applyRigidBoundaryCoupling(rigidBodies, true, dt);
 
         // Integrate rigid bodies using accumulated forces and gravity
         for (auto& body : rigidBodies) {
@@ -225,11 +240,11 @@ void SPHSolver::step(float dt, std::vector<RigidBody>& rigidBodies) {
         }
 
         // After rigid moved, apply boundary response to fluid particles using updated samples
-        applyRigidBoundaryCoupling(rigidBodies, false);
+        applyRigidBoundaryCoupling(rigidBodies, false, dt);
     }
     else if (Sim::params.rigidOneWayCoupling) {
         // simple one-way: apply particle acceleration due to rigid samples (no forces to rigid)
-        applyRigidBoundaryCoupling(rigidBodies, false);
+        applyRigidBoundaryCoupling(rigidBodies, false, dt);
     }
 
     // When two-way coupling is disabled we still need to integrate rigid bodies (gravity, etc.).

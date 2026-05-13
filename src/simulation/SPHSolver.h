@@ -17,7 +17,7 @@ struct SPHSolver {
     private:
         void computeDensityPressure();
         void computeForces();
-        void applyRigidBoundaryCoupling(std::vector<RigidBody>& rigidBodies, bool accumulateToRigid);
+        void applyRigidBoundaryCoupling(std::vector<RigidBody>& rigidBodies, bool accumulateToRigid, float dt);
         void integrateFluid(float dt);
         void handleBoundaries();
         void updateGrid();
