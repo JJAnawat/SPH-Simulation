@@ -9,6 +9,42 @@
 #include <sstream>
 #include <iostream>
 
+namespace {
+glm::vec3 cameraUpFromGravity() {
+    const glm::vec3 gravity = Sim::params.gravityVector();
+    const float len = glm::length(gravity);
+    if (len <= 1e-6f) {
+        return glm::vec3(0.f, 1.f, 0.f);
+    }
+    return -gravity / len;
+}
+
+void buildOrbitCamera(glm::vec3& eye, glm::vec3& up) {
+    const float yaw = glm::radians(Sim::camera.yaw);
+    const float pitch = glm::radians(Sim::camera.pitch);
+    const float dist = Sim::camera.distance;
+
+    up = cameraUpFromGravity();
+
+    glm::vec3 referenceForward(0.f, 0.f, 1.f);
+    referenceForward -= up * glm::dot(referenceForward, up);
+    if (glm::length(referenceForward) <= 1e-6f) {
+        referenceForward = glm::vec3(1.f, 0.f, 0.f);
+        referenceForward -= up * glm::dot(referenceForward, up);
+    }
+    referenceForward = glm::normalize(referenceForward);
+
+    glm::vec3 right = glm::normalize(glm::cross(referenceForward, up));
+
+    glm::vec3 offset =
+        referenceForward * (std::cos(pitch) * std::cos(yaw)) +
+        right * (std::cos(pitch) * std::sin(yaw)) +
+        up * std::sin(pitch);
+
+    eye = dist * offset;
+}
+}
+
 unsigned int Renderer::compileShader(unsigned int type, const std::string& path) {
     std::ifstream file(path);
     if (!file.is_open()){
@@ -170,16 +206,9 @@ void Renderer::render(const std::vector<Particle>& particles){
     glClearColor(0.1f, 0.1f, 0.1f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Simple orbit camera
-    float yaw   = glm::radians(Sim::camera.yaw);
-    float pitch = glm::radians(Sim::camera.pitch);
-    float dist = Sim::camera.distance;
-    glm::vec3 eye = glm::vec3(
-        dist * cos(pitch) * sin(yaw),
-        dist * sin(pitch),
-        dist * cos(pitch) * cos(yaw)
-    );
-    glm::mat4 view = glm::lookAt(eye, glm::vec3(0.f), glm::vec3(0,1,0));
+    glm::vec3 eye, up;
+    buildOrbitCamera(eye, up);
+    glm::mat4 view = glm::lookAt(eye, glm::vec3(0.f), up);
     glm::mat4 proj = glm::perspective(glm::radians(45.f), aspectRatio, 0.1f, 100.f);
     glm::mat4 m_view_proj  = proj * view;
     
@@ -191,15 +220,9 @@ void Renderer::renderWithRigidBodies(const std::vector<Particle>& particles, con
     glClearColor(0.1f, 0.1f, 0.1f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    float yaw   = glm::radians(Sim::camera.yaw);
-    float pitch = glm::radians(Sim::camera.pitch);
-    float dist = Sim::camera.distance;
-    glm::vec3 eye = glm::vec3(
-        dist * cos(pitch) * sin(yaw),
-        dist * sin(pitch),
-        dist * cos(pitch) * cos(yaw)
-    );
-    glm::mat4 view = glm::lookAt(eye, glm::vec3(0.f), glm::vec3(0,1,0));
+    glm::vec3 eye, up;
+    buildOrbitCamera(eye, up);
+    glm::mat4 view = glm::lookAt(eye, glm::vec3(0.f), up);
     glm::mat4 proj = glm::perspective(glm::radians(45.f), aspectRatio, 0.1f, 100.f);
     glm::mat4 m_view_proj  = proj * view;
 

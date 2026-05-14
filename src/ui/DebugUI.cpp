@@ -6,6 +6,12 @@
 #include "simulation/SimParams.h"
 
 namespace {
+glm::vec3 normalizedGravityDirection() {
+    const glm::vec3 g = Sim::params.gravityVector();
+    const float len = glm::length(g);
+    return len > 1e-6f ? g / len : glm::vec3(0.f, -1.f, 0.f);
+}
+
 void drawGravityIndicator() {
     const ImGuiIO& io = ImGui::GetIO();
     const ImVec2 displaySize = io.DisplaySize;

@@ -223,7 +223,6 @@ void SPHSolver::integrateFluid(float dt) {
 
     #ifdef _OPENMP
     #pragma omp parallel for schedule(static)
-    #endif
     for (int i = 0; i < particleCount; ++i) {
         Particle &p = particles[i];
         p.velocity += p.acceleration * dt;
@@ -235,6 +234,20 @@ void SPHSolver::integrateFluid(float dt) {
             p.velocity = glm::vec3(0.f);
         }
     }
+    #else
+    
+    for (int i = 0; i < particleCount; ++i) {
+        Particle &p = particles[i];
+        p.velocity += p.acceleration * dt;
+        p.position += p.velocity * dt;
+
+        // Catch NaN (silent fix, no printing in inner loop)
+        if (glm::any(glm::isnan(p.position))) {
+            p.position = glm::vec3(0.f);
+            p.velocity = glm::vec3(0.f);
+        }
+    }
+    #endif
 }
 
 void SPHSolver::step(float dt){
@@ -284,7 +297,6 @@ void SPHSolver::handleBoundaries(){
 
     #ifdef _OPENMP
     #pragma omp parallel for schedule(static)
-    #endif
     for(int i = 0; i < particleCount; ++i){
         Particle &p = particles[i];
         for(int ax = 0; ax < 3; ++ax){
@@ -300,4 +312,21 @@ void SPHSolver::handleBoundaries(){
             }
         }
     }
+    #else
+    for(int i = 0; i < particleCount; ++i){
+        Particle &p = particles[i];
+        for(int ax = 0; ax < 3; ++ax){
+            if(p.position[ax] < Sim::params.boxMin[ax]){
+                p.position[ax] = Sim::params.boxMin[ax] + 0.001f;
+                if(p.velocity[ax] < 0.0f)
+                    p.velocity[ax] *= -Sim::params.damp;
+            }
+            if(p.position[ax] > Sim::params.boxMax[ax]){
+                p.position[ax] = Sim::params.boxMax[ax] - 0.001f;
+                if(p.velocity[ax] > 0.0f)
+                    p.velocity[ax] *= -Sim::params.damp;
+            }
+        }
+    }
+    #endif
 }
